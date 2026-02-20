@@ -24,6 +24,11 @@ const upload = multer({ storage });
 /* -------------------- */
 /* Mail Transporter */
 /* -------------------- */
+
+if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD || !process.env.OWNER_EMAIL) {
+  console.error("❌ Missing required environment variables");
+}
+
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
