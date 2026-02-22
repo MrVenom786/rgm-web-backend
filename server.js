@@ -23,14 +23,18 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: function (origin, callback) {
+      // Allow server-to-server or Postman requests
       if (!origin) return callback(null, true);
 
       if (!allowedOrigins.includes(origin)) {
+        console.log("Blocked by CORS:", origin);
         return callback(new Error("CORS not allowed"), false);
       }
 
       return callback(null, true);
     },
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type"],
     credentials: true,
   })
 );
@@ -55,12 +59,16 @@ const upload = multer({
 /* ============================= */
 
 app.get("/", (req, res) => {
-  res.send("RGM Backend Running 🚀");
+  res.status(200).send("RGM Backend Running 🚀");
 });
 
 /* ============================= */
 /* NODEMAILER CONFIG */
 /* ============================= */
+
+if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+  console.error("❌ EMAIL_USER or EMAIL_PASS not set in environment variables");
+}
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -76,12 +84,14 @@ const transporter = nodemailer.createTransport({
 
 app.post("/api/contact", upload.none(), async (req, res) => {
   try {
-    const {
-      name,
-      email,
-      phone,
-      message
-    } = req.body;
+    const { name, email, phone, message } = req.body;
+
+    if (!name || !email || !phone || !message) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required",
+      });
+    }
 
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
@@ -96,20 +106,26 @@ app.post("/api/contact", upload.none(), async (req, res) => {
       `,
     });
 
-    res.status(200).json({ success: true, message: "Email sent successfully" });
+    return res.status(200).json({
+      success: true,
+      message: "Email sent successfully",
+    });
 
   } catch (error) {
-    console.error("Email Error:", error);
-    res.status(500).json({ success: false, message: "Failed to send email" });
+    console.error("❌ Email Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to send email",
+    });
   }
 });
 
 /* ============================= */
-/* PORT CONFIG (VERY IMPORTANT) */
+/* START SERVER */
 /* ============================= */
 
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
