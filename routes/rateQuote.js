@@ -1,7 +1,15 @@
-const express = require("express");
-const nodemailer = require("nodemailer");
+import express from "express";
+import nodemailer from "nodemailer";
 
 const router = express.Router();
+
+/* ============================= */
+/* MAIL CONFIG */
+/* ============================= */
+
+if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+  console.error("❌ Gmail credentials missing in Railway environment variables");
+}
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -10,6 +18,10 @@ const transporter = nodemailer.createTransport({
     pass: process.env.GMAIL_APP_PASSWORD,
   },
 });
+
+/* ============================= */
+/* RATE QUOTE ROUTE */
+/* ============================= */
 
 router.post("/", async (req, res) => {
   try {
@@ -26,6 +38,13 @@ router.post("/", async (req, res) => {
       details,
     } = req.body;
 
+    if (!name || !phone || !email) {
+      return res.status(400).json({
+        success: false,
+        message: "Required fields missing",
+      });
+    }
+
     /* EMAIL TO OWNER */
     await transporter.sendMail({
       from: `"RGM Logistics" <${process.env.GMAIL_USER}>`,
@@ -33,16 +52,16 @@ router.post("/", async (req, res) => {
       subject: "🚛 New Rate Quote Request",
       html: `
         <h2>New Rate Quote Request</h2>
-        <p><b>Company:</b> ${company}</p>
-        <p><b>Website:</b> ${website}</p>
+        <p><b>Company:</b> ${company || "N/A"}</p>
+        <p><b>Website:</b> ${website || "N/A"}</p>
         <p><b>Name:</b> ${name}</p>
         <p><b>Phone:</b> ${phone}</p>
         <p><b>Email:</b> ${email}</p>
-        <p><b>Customer Type:</b> ${customerType}</p>
-        <p><b>Commodity:</b> ${commodity}</p>
-        <p><b>Dollar Value:</b> ${dollarValue}</p>
-        <p><b>Shipment Frequency:</b> ${frequency}</p>
-        <p><b>Details:</b> ${details}</p>
+        <p><b>Customer Type:</b> ${customerType || "N/A"}</p>
+        <p><b>Commodity:</b> ${commodity || "N/A"}</p>
+        <p><b>Dollar Value:</b> ${dollarValue || "N/A"}</p>
+        <p><b>Shipment Frequency:</b> ${frequency || "N/A"}</p>
+        <p><b>Details:</b> ${details || "N/A"}</p>
       `,
     });
 
@@ -59,11 +78,15 @@ Our team is reviewing your freight details and will contact you shortly.
 – RGM Logistics`,
     });
 
-    res.status(200).json({ success: true });
+    return res.status(200).json({ success: true });
+
   } catch (error) {
-    console.error("Rate Quote Error:", error);
-    res.status(500).json({ success: false });
+    console.error("❌ Rate Quote Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to submit rate quote",
+    });
   }
 });
 
-module.exports = router;
+export default router;
