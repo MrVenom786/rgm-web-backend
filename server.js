@@ -8,14 +8,13 @@ dotenv.config();
 
 const app = express();
 
-/* -------------------- */
-/* Middleware */
-/* -------------------- */
+/* ============================= */
+/* CORS CONFIGURATION */
+/* ============================= */
 
-// CORS Configuration
 const allowedOrigins = [
-  "http://localhost:5173",
   "http://localhost:3000",
+  "http://localhost:5173",
   "https://rgminc.ca",
   "https://www.rgminc.ca",
   "https://rgminc.vercel.app"
@@ -25,84 +24,89 @@ app.use(
   cors({
     origin: function (origin, callback) {
       if (!origin) return callback(null, true);
-      if (allowedOrigins.indexOf(origin) === -1) {
+
+      if (!allowedOrigins.includes(origin)) {
         return callback(new Error("CORS not allowed"), false);
       }
+
       return callback(null, true);
     },
     credentials: true,
   })
 );
 
+/* ============================= */
+/* MIDDLEWARE */
+/* ============================= */
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-/* -------------------- */
-/* Multer Setup (Memory Storage) */
-/* -------------------- */
-const storage = multer.memoryStorage();
-const upload = multer({ storage });
+/* ============================= */
+/* MULTER SETUP */
+/* ============================= */
 
-/* -------------------- */
-/* Health Check Route */
-/* -------------------- */
-app.get("/", (req, res) => {
-  res.send("RGM Backend Running Successfully 🚀");
+const upload = multer({
+  storage: multer.memoryStorage(),
 });
 
-/* -------------------- */
-/* Contact Form Route */
-/* -------------------- */
-app.post("/api/contact", upload.single("file"), async (req, res) => {
+/* ============================= */
+/* HEALTH CHECK ROUTE */
+/* ============================= */
+
+app.get("/", (req, res) => {
+  res.send("RGM Backend Running 🚀");
+});
+
+/* ============================= */
+/* NODEMAILER CONFIG */
+/* ============================= */
+
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
+
+/* ============================= */
+/* CONTACT FORM ROUTE */
+/* ============================= */
+
+app.post("/api/contact", upload.none(), async (req, res) => {
   try {
-    const { name, email, phone, message } = req.body;
+    const {
+      name,
+      email,
+      phone,
+      message
+    } = req.body;
 
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-
-    const mailOptions = {
-      from: `"RGM Website" <${process.env.EMAIL_USER}>`,
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
       to: process.env.EMAIL_USER,
       subject: "New Contact Form Submission",
       html: `
-        <h3>New Contact Request</h3>
+        <h3>New Contact Inquiry</h3>
         <p><strong>Name:</strong> ${name}</p>
         <p><strong>Email:</strong> ${email}</p>
         <p><strong>Phone:</strong> ${phone}</p>
         <p><strong>Message:</strong> ${message}</p>
       `,
-      attachments: req.file
-        ? [
-            {
-              filename: req.file.originalname,
-              content: req.file.buffer,
-            },
-          ]
-        : [],
-    };
-
-    await transporter.sendMail(mailOptions);
+    });
 
     res.status(200).json({ success: true, message: "Email sent successfully" });
+
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: "Something went wrong" });
+    console.error("Email Error:", error);
+    res.status(500).json({ success: false, message: "Failed to send email" });
   }
 });
 
-/* -------------------- */
-/* Start Server */
-/* -------------------- */
-const PORT = process.env.PORT || 5000;
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+/* ============================= */
+/* PORT CONFIG (VERY IMPORTANT) */
+/* ============================= */
 
 const PORT = process.env.PORT || 5000;
 
