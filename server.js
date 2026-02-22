@@ -11,145 +11,95 @@ const app = express();
 /* -------------------- */
 /* Middleware */
 /* -------------------- */
-app.use(cors());
-app.use(express.urlencoded({ extended: true })); // REQUIRED
+
+// CORS Configuration
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "https://rgminc.ca",
+  "https://www.rgminc.ca",
+  "https://rgminc.vercel.app"
+];
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) === -1) {
+        return callback(new Error("CORS not allowed"), false);
+      }
+      return callback(null, true);
+    },
+    credentials: true,
+  })
+);
+
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 /* -------------------- */
-/* Multer Setup */
+/* Multer Setup (Memory Storage) */
 /* -------------------- */
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
 /* -------------------- */
-/* Mail Transporter */
+/* Health Check Route */
 /* -------------------- */
-
-if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD || !process.env.OWNER_EMAIL) {
-  console.error("❌ Missing required environment variables");
-}
-
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD,
-  },
+app.get("/", (req, res) => {
+  res.send("RGM Backend Running Successfully 🚀");
 });
 
 /* -------------------- */
-/* APPLY TODAY ROUTE */
+/* Contact Form Route */
 /* -------------------- */
-app.post(
-  "/apply",
-  upload.fields([
-    { name: "licenseFile", maxCount: 1 },
-    { name: "immigrationFile", maxCount: 1 },
-    { name: "otherDocument", maxCount: 1 },
-  ]),
-  async (req, res) => {
-    try {
-      const {
-        firstName,
-        middleName,
-        lastName,
-        email,
-        primaryPhone,
-        license,
-      } = req.body;
-
-      if (!firstName || !email || !license) {
-        return res.status(400).json({ message: "Missing required fields" });
-      }
-
-      const mailOptions = {
-        from: `"RGM Family" <${process.env.GMAIL_USER}>`,
-        to: process.env.OWNER_EMAIL,
-        subject: "New Driver Application - RGM Family",
-        html: `
-          <h2>RGM FAMILY DRIVER APPLICATION</h2>
-          <p><b>Name:</b> ${firstName} ${middleName || ""} ${lastName}</p>
-          <p><b>Email:</b> ${email}</p>
-          <p><b>Primary Phone:</b> ${primaryPhone}</p>
-          <p><b>License Number:</b> ${license}</p>
-          <p>Applicant has requested a virtual meeting via Google Meet.</p>
-        `,
-        attachments: [
-          {
-            filename: req.files.licenseFile[0].originalname,
-            content: req.files.licenseFile[0].buffer,
-          },
-          {
-            filename: req.files.immigrationFile[0].originalname,
-            content: req.files.immigrationFile[0].buffer,
-          },
-          {
-            filename: req.files.otherDocument[0].originalname,
-            content: req.files.otherDocument[0].buffer,
-          },
-        ],
-      };
-
-      await transporter.sendMail(mailOptions);
-
-      res.status(200).json({ message: "Application sent successfully" });
-    } catch (error) {
-      console.error("Apply Error:", error);
-      res.status(500).json({ message: "Failed to send application" });
-    }
-  }
-);
-
-/* -------------------- */
-/* RATE QUOTE ROUTE */
-/* -------------------- */
-app.post("/rate-quote", async (req, res) => {
+app.post("/api/contact", upload.single("file"), async (req, res) => {
   try {
-    const data = req.body;
+    const { name, email, phone, message } = req.body;
+
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
 
     const mailOptions = {
-      from: `"RGM Rate Quote" <${process.env.GMAIL_USER}>`,
-      to: process.env.OWNER_EMAIL,
-      subject: "New Rate Quote Request - RGM",
-      text: `
-RGM RATE QUOTE REQUEST
-
-Company Name: ${data.companyName}
-Company Website: ${data.companyWebsite}
-Name: ${data.name}
-Phone: ${data.phone}
-Email: ${data.email}
-
-Customer Type: ${data.customerType}
-Commodity: ${data.commodity}
-Dollar Value of Shipment: ${data.shipmentValue}
-Shipment Frequency: ${data.shipmentFrequency}
-Freight Details: ${data.freightDetails}
-
-Agreed to SMS: ${data.agreeSms ? "Yes" : "No"}
-Agreed to Email: ${data.agreeEmail ? "Yes" : "No"}
-`,
+      from: `"RGM Website" <${process.env.EMAIL_USER}>`,
+      to: process.env.EMAIL_USER,
+      subject: "New Contact Form Submission",
+      html: `
+        <h3>New Contact Request</h3>
+        <p><strong>Name:</strong> ${name}</p>
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Phone:</strong> ${phone}</p>
+        <p><strong>Message:</strong> ${message}</p>
+      `,
+      attachments: req.file
+        ? [
+            {
+              filename: req.file.originalname,
+              content: req.file.buffer,
+            },
+          ]
+        : [],
     };
 
     await transporter.sendMail(mailOptions);
-    res.status(200).json({ message: "Rate quote submitted successfully" });
+
+    res.status(200).json({ success: true, message: "Email sent successfully" });
   } catch (error) {
-    console.error("Rate Quote Error:", error);
-    res.status(500).json({ message: "Failed to send rate quote" });
+    console.error(error);
+    res.status(500).json({ success: false, message: "Something went wrong" });
   }
 });
 
 /* -------------------- */
-/* ROOT ROUTE */
-/* -------------------- */
-app.get("/", (req, res) => {
-  res.send("🟢 Backend is running.");
-});
-
-/* -------------------- */
-/* START SERVER */
+/* Start Server */
 /* -------------------- */
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Backend running on port ${PORT}`);
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
