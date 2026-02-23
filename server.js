@@ -9,7 +9,9 @@ import rateQuoteRoute from "./routes/rateQuote.js";
 dotenv.config();
 
 const app = express();
-
+console.log("PORT:", process.env.PORT);
+console.log("GMAIL_USER:", process.env.GMAIL_USER);
+console.log("OWNER_EMAIL:", process.env.OWNER_EMAIL);
 /* ============================= */
 /* CORS CONFIGURATION */
 /* ============================= */
