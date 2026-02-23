@@ -9,9 +9,7 @@ import rateQuoteRoute from "./routes/rateQuote.js";
 dotenv.config();
 
 const app = express();
-console.log("PORT:", process.env.PORT);
-console.log("GMAIL_USER:", process.env.GMAIL_USER);
-console.log("OWNER_EMAIL:", process.env.OWNER_EMAIL);
+
 /* ============================= */
 /* CORS CONFIGURATION */
 /* ============================= */
@@ -21,7 +19,7 @@ const allowedOrigins = [
   "http://localhost:5173",
   "https://rgminc.ca",
   "https://www.rgminc.ca",
-  "https://rgminc.vercel.app"
+  "https://rgminc.vercel.app",
 ];
 
 app.use(
@@ -29,15 +27,19 @@ app.use(
     origin: function (origin, callback) {
       if (!origin) return callback(null, true);
 
-      if (!allowedOrigins.includes(origin)) {
-        console.log("Blocked by CORS:", origin);
-        return callback(new Error("CORS not allowed"), false);
+      // Allow all Vercel preview deployments
+      if (origin.endsWith(".vercel.app")) {
+        return callback(null, true);
       }
 
-      return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      console.log("❌ Blocked by CORS:", origin);
+      return callback(new Error("CORS not allowed"));
     },
     methods: ["GET", "POST", "OPTIONS"],
-    allowedHeaders: ["Content-Type"],
     credentials: true,
   })
 );
