@@ -43,6 +43,7 @@ app.use(
     credentials: true,
   })
 );
+
 /* ============================= */
 /* MIDDLEWARE */
 /* ============================= */
@@ -66,7 +67,7 @@ app.get("/", (req, res) => {
 /* ROUTES */
 /* ============================= */
 
-app.use("/api/apply", applyRoute);
+app.use("/api/apply", upload.any(), applyRoute);
 app.use("/api/rate-quote", rateQuoteRoute);
 
 /* ============================= */
